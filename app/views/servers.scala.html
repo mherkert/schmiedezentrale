@@ -1,0 +1,9 @@
+@(servers: List[VpnServer])
+
+<div id="servers">
+  <ul>
+    @for(server <- servers) {
+      <li>@(server.toString)</li>
+    }
+  </ul>
+</div>

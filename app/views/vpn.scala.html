@@ -1,0 +1,9 @@
+@(apiKey: String, vpnServers: List[VpnServer])
+
+@main("Set up a VPN connection") {
+  <p>Hello, this is the VPN page!</p>
+
+  @map(apiKey)
+
+  @servers(vpnServers)
+}

@@ -1,0 +1,8 @@
+@(url: String, file: String, title: String)
+
+<div class="tileContainer">
+  <figure>
+    <a href="@url"><img src="@routes.Assets.at(file)" title="@title"></a>
+    <figcaption>@title</figcaption>
+  </figure>
+</div>

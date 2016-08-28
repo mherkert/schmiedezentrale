@@ -1,0 +1,51 @@
+html, body, .container {
+    min-height: 100%;
+    font-family: sans-serif;
+    font-weight: lighter;
+    margin: auto;
+    width: 90%;
+
+}
+
+ul.inline li {
+    display: inline;
+}
+
+.tileContainer {
+    text-align: center;
+    display: inline;
+}
+
+.tileContainer figure {
+    /*display: inline;*/
+    position: relative;
+    display: inline-block;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left:0;
+    padding-right:0;
+}
+
+.tileContainer figcaption {
+    position: absolute;
+    left: 0;
+    width: 100%;
+}
+
+.tileContainer img {
+    height: 96px;
+    width: 187px;
+    border: 1px solid #aaaaaa;
+    padding: 5px;
+}
+
+
+#map {
+    width: 50%;
+    height: 400px;
+    background-color: grey;
+}
+
+#servers {
+    width: 100%;
+}
