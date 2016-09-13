@@ -5,16 +5,19 @@ import javax.inject._
 
 import com.typesafe.config.ConfigObject
 import models.VpnServer
+import play.api.data.Form
+import play.api.data.Forms._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import services.VpnService
+import views.formdata.VpnServerData
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
 @Singleton
-class VpnController @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.api.Configuration) extends Controller {
+class Vpn @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.api.Configuration) extends Controller {
 
   def vpn = Action {
     val apiKey: Option[String] = configuration.getString("google.maps.api.key")
@@ -25,6 +28,28 @@ class VpnController @Inject()(ws: WSClient, vpnService: VpnService, configuratio
       ServiceUnavailable("Unable to parse VPN server configuration.")
     else
       ServiceUnavailable("Google Maps API key not configured.")
+  }
+
+  def connect = Action {
+    val vpnServerData = Form(
+      mapping(
+        "location" -> text,
+        "hostname" -> text
+      )(VpnServerData.apply)(VpnServerData.unapply)
+    )
+    val form: Form[VpnServerData] = vpnServerData.bindFromRequest()
+
+    Ok("Hi %s %s".format(form.get.hostname, form.get.location))
+    //    val formData: Nothing = Form.form(classOf[StudentFormData]).bindFromRequest
+    //    if (formData.hasErrors) {
+    //      flash("error", "Please correct errors above.")
+    //      return badRequest(Index.render(formData, Hobby.makeHobbyMap(null), GradeLevel.getNameList, GradePointAverage.makeGPAMap(null), Major.makeMajorMap(null)))
+    //    }
+    //    else {
+    //      val student: Student = Student.makeInstance(formData.get)
+    //      flash("success", "Student instance created/edited: " + student)
+    //      return ok(Index.render(formData, Hobby.makeHobbyMap(formData.get), GradeLevel.getNameList, GradePointAverage.makeGPAMap(formData.get), Major.makeMajorMap(formData.get)))
+    //    }
   }
 
   def location = Action.async {
@@ -48,10 +73,10 @@ class VpnController @Inject()(ws: WSClient, vpnService: VpnService, configuratio
     Ok(s"username: $response")
   }
 
-  def connect = Action {
-    val response: String = vpnService.openVpn("eu1.vpn.goldenfrog.com", "Gummiboot")
-    Ok(s"Go Check: $response")
-  }
+//  def connect = Action {
+//    val response: String = vpnService.openVpn("eu1.vpn.goldenfrog.com", "Gummiboot")
+//    Ok(s"Go Check: $response")
+//  }
 
   def ping = Action.async {
     val futurePing: Future[Double] = scala.concurrent.Future {
