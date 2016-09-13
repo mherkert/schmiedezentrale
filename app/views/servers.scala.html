@@ -1,8 +1,8 @@
-@(servers: List[VpnServer])
+@(serverMap: Map[String, AnyRef])
 
 <div id="servers">
   <ul>
-    @for(server <- servers) {
+    @for(server <- serverMap) {
       <li>@(server.toString)</li>
     }
   </ul>

@@ -3,7 +3,6 @@ package services
 import play.api.Logger
 
 import scala.sys.process._
-import scala.util.Try
 import scala.util.matching.Regex
 
 class VpnService {
@@ -22,12 +21,22 @@ class VpnService {
   def openVpn(hostname: String, password: String): String = {
     commandLogger.info(s"Open VPN connection to [$hostname].")
     sudoLogin(password,
-      run(s"sudo openvpn --client --remote $hostname --dev tun --comp-lzo --auth-user-pass /home/pi/openvpn.conf --tls-client --ca /etc/openvpn/ca.vyprvpn.com.crt --management localhost 9999"))
+      try {
+        run(s"sudo openvpn --client --remote $hostname --dev tun --comp-lzo --auth-user-pass /home/pi/openvpn.conf --tls-client --ca /etc/openvpn/ca.vyprvpn.com.crt --management localhost 9999")
+      } catch {
+        case e: Exception => throw new IllegalArgumentException(s"Unable to connect to VPN. ${e.getMessage}")
+      }
+    )
   }
 
   def runUnameAsSudo(password: String): String = {
     sudoLogin(password,
       run("uname"))
+  }
+
+  def find(processLogger: ProcessLogger): Stream[String] ={
+//    runLines("blah", processLogger)
+    runLines("find /usr/local/Library -print", processLogger)
   }
 
   def userName(password: String): String = {
@@ -37,11 +46,12 @@ class VpnService {
   }
 
   private def ping(hostname: String): String = {
-    Try(run(s"fping -C 4 $hostname")).getOrElse(throw new IllegalArgumentException(s"Unable to ping host $hostname."))
+    run(s"fping -C 4 $hostname")
   }
 
   private def sudoLogin(password: String, command: => String): String = {
     (s"echo $password" #| s"sudo -S uname").!!.trim
+//    Try(run(s"echo $password" #| s"sudo -S uname")).getOrElse(throw new IllegalArgumentException("Unable to login. Check your credentials."))
     val response: String = command
     run("sudo -k")
     commandLogger.debug(response)
@@ -50,11 +60,28 @@ class VpnService {
 
   private def run(command: ProcessBuilder): String = {
     commandLogger.debug(command.toString)
-    command.!!.trim
+    try {
+      command.!!.trim
+    } catch {
+      case e: Exception => throw new CommandException(message = s"Unable to process command: ${e.getMessage}", cause = e)
+    }
   }
 
   private def run(command: String): String = {
     commandLogger.debug(command)
-    s"$command".!!.trim
+    try {
+      s"$command".!!.trim
+    } catch {
+      case e: Exception => throw new CommandException(message = s"Unable to process command: ${e.getMessage}", cause = e)
+    }
+  }
+
+  private def runLines(command: String, processLogger: ProcessLogger): Stream[String] = {
+    commandLogger.debug(command)
+    try {
+      s"$command".lineStream_!(processLogger)
+    } catch {
+      case e: Exception => throw new CommandException(message = s"Unable to process command: ${e.getMessage}", cause = e)
+    }
   }
 }

@@ -3,26 +3,31 @@
 # ~~~~
 
 # Home page
-GET        /                    controllers.Application.index
+GET         /                    controllers.Application.index
 
 # VPN setup page
-GET        /vpn                 controllers.VpnController.vpn
+GET         /vpn                 controllers.Vpn.vpn
+
+POST        /vpn/connect         controllers.Vpn.connect
 
 # VPN setup page
-GET        /vpn/servers         controllers.VpnController.servers
+GET         /vpn/servers         controllers.Vpn.servers
 
 # Map static resources from the /public folder to the /assets URL path
-GET        /assets/*file        controllers.Assets.at(path="/public", file)
+GET         /assets/*file        controllers.Assets.at(path="/public", file)
 
 # VPN connection location
-GET        /vpn/location        controllers.VpnController.location
+GET         /vpn/location        controllers.Vpn.location
 
 # Spike VPN connection
-GET        /vpn/connect         controllers.VpnController.connect
+GET         /vpn/connect         controllers.Vpn.connect
 
 # Spike ping
-GET        /vpn/ping            controllers.VpnController.ping
+GET         /vpn/ping            controllers.Vpn.ping
 
 # Spike sudo
-GET        /vpn/userName         controllers.VpnController.userName
+GET         /vpn/userName        controllers.Vpn.userName
+
+# Spike find
+GET         /vpn/find            controllers.Vpn.find
 

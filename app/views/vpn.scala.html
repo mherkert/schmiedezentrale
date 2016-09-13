@@ -1,4 +1,6 @@
-@(apiKey: String, vpnServers: List[VpnServer])
+@import views.formdata.VpnServerData
+
+@(apiKey: String, vpnServers: Map[String, AnyRef], vForm: Form[VpnServerData])(implicit messages: play.api.i18n.Messages)
 
 @main("Set up a VPN connection") {
   <p>Hello, this is the VPN page!</p>
@@ -6,4 +8,9 @@
   @map(apiKey)
 
   @servers(vpnServers)
+
+  <h2>Connect to VPN</h2>
+
+  @vpnForm(vpnServers, vForm)
 }
+

@@ -1,55 +1,45 @@
 package controllers
 
-import java.util.Map.Entry
 import javax.inject._
 
 import com.typesafe.config.ConfigObject
-import models.VpnServer
 import play.api.data.Form
 import play.api.data.Forms._
+import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.ws.WSClient
 import play.api.mvc._
-import services.VpnService
+import services.{StringProcessLogger, VpnService}
 import views.formdata.VpnServerData
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
 @Singleton
-class Vpn @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.api.Configuration) extends Controller {
+class Vpn @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.api.Configuration, processLogger: StringProcessLogger, val messagesApi: MessagesApi) extends Controller with I18nSupport {
 
   def vpn = Action {
-    val apiKey: Option[String] = configuration.getString("google.maps.api.key")
-    val servers: Option[List[VpnServer]] = readVpnServersFromConfig()
-    if (apiKey.isDefined && servers.isDefined)
-      Ok(views.html.vpn(apiKey.get, servers.get))
-    else if (servers.isEmpty)
-      ServiceUnavailable("Unable to parse VPN server configuration.")
-    else
-      ServiceUnavailable("Google Maps API key not configured.")
+    try {
+      val apiKey: String = readApiKeyFromConfig()
+      val serverMap: Map[String, AnyRef] = readVpnServersFromConfig()
+      Ok(views.html.vpn(apiKey, serverMap, Vpn.createVpnForm))
+    } catch {
+      case e: IllegalStateException => ServiceUnavailable(s"Unable to parse application configuration: ${e.getMessage}")
+    }
   }
 
-  def connect = Action {
-    val vpnServerData = Form(
-      mapping(
-        "location" -> text,
-        "hostname" -> text
-      )(VpnServerData.apply)(VpnServerData.unapply)
-    )
-    val form: Form[VpnServerData] = vpnServerData.bindFromRequest()
-
-    Ok("Hi %s %s".format(form.get.hostname, form.get.location))
-    //    val formData: Nothing = Form.form(classOf[StudentFormData]).bindFromRequest
-    //    if (formData.hasErrors) {
-    //      flash("error", "Please correct errors above.")
-    //      return badRequest(Index.render(formData, Hobby.makeHobbyMap(null), GradeLevel.getNameList, GradePointAverage.makeGPAMap(null), Major.makeMajorMap(null)))
-    //    }
-    //    else {
-    //      val student: Student = Student.makeInstance(formData.get)
-    //      flash("success", "Student instance created/edited: " + student)
-    //      return ok(Index.render(formData, Hobby.makeHobbyMap(formData.get), GradeLevel.getNameList, GradePointAverage.makeGPAMap(formData.get), Major.makeMajorMap(formData.get)))
-    //    }
+  def connect = Action { implicit request =>
+    try {
+      val apiKey: String = readApiKeyFromConfig()
+      val serverMap: Map[String, AnyRef] = readVpnServersFromConfig()
+      val form: Form[VpnServerData] = Vpn.createVpnForm.bindFromRequest()
+      val hostname: String = serverMap(form.get.location).toString
+      val password: String = form.get.password
+      val response: String = vpnService.openVpn(hostname, password)
+      Ok(views.html.vpn(apiKey, serverMap, Vpn.createVpnForm))
+    } catch {
+      case e: IllegalStateException => ServiceUnavailable(s"Unable to parse application configuration: ${e.getMessage}")
+    }
   }
 
   def location = Action.async {
@@ -60,12 +50,12 @@ class Vpn @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.ap
   }
 
   def servers = Action {
-    val vpnServers: Option[List[VpnServer]] = readVpnServersFromConfig()
-
-    if (vpnServers.isDefined)
-      Ok(vpnServers.get.toString())
-    else
-      ServiceUnavailable("Unable to parse VPN server configuration.")
+    try {
+      val serverMap: Map[String, AnyRef] = readVpnServersFromConfig()
+      Ok(serverMap.toString())
+    } catch {
+      case e: IllegalStateException => ServiceUnavailable(s"Unable to parse application configuration: ${e.getMessage}")
+    }
   }
 
   def userName = Action {
@@ -73,10 +63,10 @@ class Vpn @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.ap
     Ok(s"username: $response")
   }
 
-//  def connect = Action {
-//    val response: String = vpnService.openVpn("eu1.vpn.goldenfrog.com", "Gummiboot")
-//    Ok(s"Go Check: $response")
-//  }
+  def find = Action {
+    val stream: Stream[String] = vpnService.find(processLogger)
+    Ok(stream.toString() + "\n" + processLogger.lines)
+  }
 
   def ping = Action.async {
     val futurePing: Future[Double] = scala.concurrent.Future {
@@ -85,16 +75,20 @@ class Vpn @Inject()(ws: WSClient, vpnService: VpnService, configuration: play.ap
     futurePing.map(i => Ok("Got result: " + i))
   }
 
-  def readVpnServersFromConfig(): Option[List[VpnServer]] = {
-    val vpnConfigurationObjects: Option[java.util.List[_ <: ConfigObject]] = configuration.getObjectList("vpn.servers")
-    if (vpnConfigurationObjects.isDefined) {
-      def servers = for {
-        configObject <- vpnConfigurationObjects.get
-        entry: Entry[String, AnyRef] <- configObject.unwrapped().entrySet()
-      } yield new VpnServer(entry.getKey, entry.getValue.asInstanceOf[String])
-      Some(servers.toList)
-    }
-    else None
+  def readApiKeyFromConfig(): String = {
+    configuration.getString("google.maps.api.key").getOrElse(throw new IllegalStateException("Application property [google.maps.api.key] not defined."))
   }
 
+  def readVpnServersFromConfig(): Map[String, AnyRef] = {
+    val configObject: ConfigObject = configuration.getObject("vpn.servers").getOrElse(throw new IllegalStateException("Application property [vpn.servers] not defined."))
+    configObject.unwrapped().toMap
+  }
+}
+
+object Vpn {
+  val createVpnForm = Form(
+    mapping(
+      "location" -> nonEmptyText, "password" -> nonEmptyText
+    )(VpnServerData.apply)(VpnServerData.unapply)
+  )
 }
